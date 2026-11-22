@@ -2,7 +2,7 @@
 
 A parametric, 3D-printable jig for cold-setting the chainstays of a lugged steel frame (a Raleigh Record Sprint, Reynolds 501). It moves the stays about 4 mm outward per side to make room for a wider tire in a 1x gravel conversion.
 
-**3D viewer:** [`viewer/index.html`](viewer/index.html). Open it in a browser to see the jig on the bike, before and after bending, with selectable tire (28–45 mm) and chainring (40–52T) sizes.
+**3D viewer:** https://rstoof.github.io/chainstay-jig/viewer/ (source: [`viewer/index.html`](viewer/index.html)). Open it in a browser to see the jig on the bike, before and after bending, with selectable tire (28–45 mm) and chainring (40–52T) sizes.
 
 ## How it works
 
