@@ -38,7 +38,8 @@ h1{font-family:var(--f-display);font-weight:700;font-size:clamp(34px,5vw,52px);l
 .lbl{position:absolute;pointer-events:none;transform:translate(-50%,-100%);font-family:var(--f-mono);font-size:11px;background:var(--panel);color:var(--fg);border:1px solid var(--line);padding:2px 6px;border-radius:3px;white-space:nowrap;pointer-events:none}
 .lbl.k{border-color:var(--accent);color:var(--accent)}
 .hint{position:absolute;right:10px;bottom:8px;pointer-events:none;font-size:12px;color:var(--muted);font-family:var(--f-mono)}
-.loading{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--f-mono);color:var(--muted)}
+[hidden]{display:none !important}
+.loading{position:absolute;inset:0;pointer-events:none;display:grid;place-items:center;font-family:var(--f-mono);color:var(--muted)}
 .controls{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;margin-top:12px}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:4px;overflow:hidden}
 .seg button{font:600 14px var(--f-body);padding:7px 14px;border:0;background:var(--panel);color:var(--fg);cursor:pointer}
