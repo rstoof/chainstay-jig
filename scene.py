@@ -192,7 +192,7 @@ def build():
     # jig on the drive stay, jig frame: X along stay, Y outward, Z up-ish
     jloc = Location(Plane(origin=p0 + u * jig.JIG_START_FROM_BB, x_dir=u, z_dir=u.cross(n)))
     jp = fit_jig(jig.build(), jloc, n, st_dir, dt_dir, stub, parts["stay_nds_straight"], lugs[-1])
-    for k in ("die_outer", "die_inner", "plate_inner", "plate_outer", "bolts", "nuts", "putty"):
+    for k in ("die_outer", "die_inner", "washers_inner", "washers_outer", "bolts", "nuts", "putty"):
         parts["jig_" + k] = jp[k].moved(jloc)
     parts["_jig_local"] = jp
 

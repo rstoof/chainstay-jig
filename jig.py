@@ -50,7 +50,7 @@ W_MAX = max(w for _, w, _ in SECTIONS)
 H_MAX = max(h for _, _, h in SECTIONS)
 
 L = 150.0            # jig length along the stay
-H = 70.0             # die height (Z)
+H = 74.0             # die height (Z): room for the Ø24 washers at the +-24 bolt rows
 BAND = 6.0           # thickness (Z) of the finger band right above / below the stay
 BAND_GAP = 0.0       # flat finger faces level with the stay top; the cavity (CLR/2) cuts a 0.1 groove into them - keep CLR/2 - BAND_GAP > 0 (coincident faces break the booleans)
 FINGER = 12.0        # finger reach past the split face: covers the stay top even with the jig open
@@ -58,7 +58,7 @@ FINGER_W = 10.0      # finger width along X (pitch = 2x)
 FCLR = 0.3           # finger side clearance
 FCHAMF = 1.0         # lead-in chamfer on both side corners of each finger tip (X)
 ZCHAMF = 0.9         # lead-in chamfer on the tip edge away from the stay (Z)
-WALL = 7.0           # PPA wall behind the tube (steel plate behind that)
+WALL = 18.0          # PPA behind the tube. No steel bars: the die itself spans from the bolt rows to the stay
 
 CLEAR_NEEDED = 4.0   # extra tire clearance wanted on the bike, per side (mm)
 RUB_FROM_LUG = 57.0  # measured: tire rubs 57 mm after the end of the lug
@@ -76,13 +76,16 @@ BEND1 = (12.0, 32.0)    # outward kink centred 22 mm from the lug: runs into the
 BEND2 = (82.0, 100.0)   # single inward kink, just after the dimple
 DROPOUT_FROM_BB = 420.0   # chainstay length
 
-PLATE_T = 6.0        # steel flat bar thickness
-PLATE_H = 80.0       # steel flat bar width (80x6 is a stock size)
-INNER_PLATE_START = 36.0   # tire-side bar starts here (plain square cut) - clears the other stay and lug
-BOLT_X = (49.0, 92.0, 135.0)   # first pair 13 mm from the inner bar end
+WASHER_T = 2.0       # DIN 9021 M8 washer (Ø24) under every head and nut, straight on the PPA
+WASHER_D = 24.0
+BOLT_X = (49.0, 92.0, 135.0)   # pairs at +-BOLT_Z
 BOLT_Z = 24.0        # bolt rows at +-BOLT_Z, outside the finger bands
+# extra bolts in the BB-end corners, next to bend 1 (x, z, washer Ø). The top one sits
+# close to the seat tube: a plain DIN 125 Ø16 washer clears it, a Ø24 one just touches.
+CORNER_BOLTS = ((12.0, -BOLT_Z, 24.0), (12.0, BOLT_Z, 16.0))
+BOLTS = tuple((x, z, WASHER_D) for x in BOLT_X for z in (-BOLT_Z, BOLT_Z)) + CORNER_BOLTS
 BOLT_D = 8.5         # M8 clearance
-BOLT_LEN = 80.0
+BOLT_LEN = 100.0
 NUT_H = 6.5
 HEAD_H = 5.3
 HEX_AF = 13.0
@@ -292,45 +295,40 @@ def build():
     putty = dimple & env_final   # flush fill of the dimple
 
     # bolt holes
-    for bx in BOLT_X:
-        for bz in (-BOLT_Z, BOLT_Z):
-            hole = Pos(bx, 0, bz) * Rot(90, 0, 0) * Cylinder(BOLT_D / 2, 200)
-            outer -= hole
-            inner -= hole
+    for bx, bz, _ in BOLTS:
+        hole = Pos(bx, 0, bz) * Rot(90, 0, 0) * Cylinder(BOLT_D / 2, 200)
+        outer -= hole
+        inner -= hole
 
-    def plate(y0, x0=0.0):
-        p = Pos((x0 + L) / 2, y0 + PLATE_T / 2, 0) * Box(L - x0, PLATE_T, PLATE_H)
-        for bx in BOLT_X:
-            for bz in (-BOLT_Z, BOLT_Z):
-                p -= Pos(bx, y0 + PLATE_T / 2, bz) * Rot(90, 0, 0) * Cylinder(BOLT_D / 2, PLATE_T + 2)
-        return p
+    def washers(y0):
+        ring = lambda d: Cylinder(d / 2, WASHER_T) - Cylinder(BOLT_D / 2, WASHER_T + 1)
+        return Compound([Pos(bx, y0 + WASHER_T / 2, bz) * Rot(90, 0, 0) * ring(wd) for bx, bz, wd in BOLTS])
 
-    plate_in = plate(Y_IN_BACK - PLATE_T, INNER_PLATE_START)
-    plate_out = plate(Y_OUT_BACK)
+    washers_in = washers(Y_IN_BACK - WASHER_T)
+    washers_out = washers(Y_OUT_BACK)
 
     # hardware (closed state): head on the tire side, nut on the crank side
-    y_head = Y_IN_BACK - PLATE_T
-    y_nut = Y_OUT_BACK + PLATE_T
+    y_head = Y_IN_BACK - WASHER_T
+    y_nut = Y_OUT_BACK + WASHER_T
     bolts, nuts = [], []
-    for bx in BOLT_X:
-        for bz in (-BOLT_Z, BOLT_Z):
-            head = Pos(bx, y_head - HEAD_H / 2, bz) * Rot(90, 0, 0) * extrude(
-                RegularPolygon(HEX_AF / math.sqrt(3), 6), HEAD_H / 2, both=True)
-            shank = Pos(bx, y_head + BOLT_LEN / 2, bz) * Rot(90, 0, 0) * Cylinder(4, BOLT_LEN)
-            bolts.append(head + shank)
-            nut = Pos(bx, y_nut + NUT_H / 2, bz) * Rot(90, 0, 0) * (
-                extrude(RegularPolygon(HEX_AF / math.sqrt(3), 6), NUT_H / 2, both=True) - Cylinder(4, 20))
-            nuts.append(nut)
+    for bx, bz, _ in BOLTS:
+        head = Pos(bx, y_head - HEAD_H / 2, bz) * Rot(90, 0, 0) * extrude(
+            RegularPolygon(HEX_AF / math.sqrt(3), 6), HEAD_H / 2, both=True)
+        shank = Pos(bx, y_head + BOLT_LEN / 2, bz) * Rot(90, 0, 0) * Cylinder(4, BOLT_LEN)
+        bolts.append(head + shank)
+        nut = Pos(bx, y_nut + NUT_H / 2, bz) * Rot(90, 0, 0) * (
+            extrude(RegularPolygon(HEX_AF / math.sqrt(3), 6), NUT_H / 2, both=True) - Cylinder(4, 20))
+        nuts.append(nut)
 
     return dict(
-        die_outer=outer, die_inner=inner, plate_inner=plate_in, plate_outer=plate_out,
+        die_outer=outer, die_inner=inner, washers_inner=washers_in, washers_outer=washers_out,
         putty=putty, tube_final=tube_final, tube_straight=tube_straight,
         bolts=Compound(bolts), nuts=Compound(nuts),
     )
 
 
 def report():
-    closed = (Y_OUT_BACK - Y_IN_BACK) + 2 * PLATE_T + NUT_H
+    closed = (Y_OUT_BACK - Y_IN_BACK) + 2 * WASHER_T + NUT_H
     xc = CLEAR_AT_BB - JIG_START_FROM_BB
     print(f"at BB+{CLEAR_AT_BB:.0f}: die {yc(xc):.2f} mm -> bike ~{yc(xc) / OVERBEND:.2f} mm")
     print(f"die offset peak (incl. overbend): {DIE_OFF:.2f} mm, bike ~{DIE_OFF / OVERBEND:.2f} mm, return slope {math.degrees(math.atan(SLOPE)):.2f} deg")
@@ -340,7 +338,8 @@ def report():
     for x in (0, BEND1[1], DIMPLE[0], DIMPLE[1], _X2C, L):
         print(f"  offset at x={x:5.1f} (BB+{x + JIG_START_FROM_BB:5.1f}): {yc(x):.2f}")
     print(f"bolt grip closed {closed:.1f} mm, open {closed + DIE_OFF:.1f} mm  (bolt {BOLT_LEN})")
-    print(f"inner stack (tire side) from tube centre: {-Y_IN_BACK + PLATE_T + HEAD_H:.1f} mm")
+    print(f"inner stack (tire side) from tube centre: {-Y_IN_BACK + WASHER_T + HEAD_H:.1f} mm")
+    print(f"bolts: {len(BOLTS)}  die thickness, inner / outer: {-Y_IN_BACK:.1f} / {Y_OUT_BACK:.1f}")
 
 
 if __name__ == "__main__":
@@ -349,7 +348,7 @@ if __name__ == "__main__":
     parts = build()
     for name, shp in parts.items():
         export_stl(shp, str(OUT / f"{name}.stl"), tolerance=0.05, angular_tolerance=0.2)
-    export_step(Compound([parts[k] for k in ("die_outer", "die_inner", "plate_inner", "plate_outer", "putty")]),
+    export_step(Compound([parts[k] for k in ("die_outer", "die_inner", "washers_inner", "washers_outer", "putty")]),
                 str(OUT / "jig_assembly.step"))
     export_step(parts["die_outer"], str(OUT / "die_outer.step"))
     export_step(parts["die_inner"], str(OUT / "die_inner.step"))

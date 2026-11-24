@@ -25,8 +25,8 @@ t = plain["tube_final"]
 print("tube vs fitted dies:", round(ov(t, jl["die_inner"] + jl["die_outer"]), 2),
       " dies overlap:", round(ov(jl["die_inner"], jl["die_outer"]), 2))
 bad = 0
-for k in ("jig_die_inner", "jig_die_outer", "jig_plate_inner", "jig_plate_outer", "jig_bolts", "jig_nuts"):
-    inner = k in ("jig_die_inner", "jig_plate_inner", "jig_bolts")
+for k in ("jig_die_inner", "jig_die_outer", "jig_washers_inner", "jig_washers_outer", "jig_bolts", "jig_nuts"):
+    inner = k in ("jig_die_inner", "jig_washers_inner", "jig_bolts")
     for st, sh in (("closed", 0), ("open", -jig.DIE_OFF)):
         m = parts[k].moved(Location(n * (sh if inner else 0)))
         a, b = ov(m, frame), ov(m, nds)
@@ -36,7 +36,7 @@ for k in ("jig_die_inner", "jig_die_outer", "jig_plate_inner", "jig_plate_outer"
             bb = o.bounding_box()
             print(f"HIT {k} {st}: frame {a:.1f} other stay {b:.1f}  bike x {bb.min.X:.0f}..{bb.max.X:.0f}")
 print("collisions:", bad)
-print("inner bar to other stay, open:", round(parts["jig_plate_inner"].moved(Location(n * -jig.DIE_OFF)).distance_to(nds + frame), 2))
+print("inner washers to frame / other stay, open:", round(parts["jig_washers_inner"].moved(Location(n * -jig.DIE_OFF)).distance_to(nds + frame), 2))
 
 meta.update(scene.report(y0))
 meta["tires"] = {}

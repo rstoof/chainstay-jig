@@ -32,7 +32,7 @@ if __name__ == "__main__":
     print("stay vs test dies:", round(ov(tube, jl["die_inner"] + jl["die_outer"]), 2),
           " dies overlap:", round(ov(jl["die_inner"], jl["die_outer"]), 2))
     frame = parts["bb_frame"]; nds = parts["stay_nds_straight"]
-    hits = [k for k in ("jig_die_inner", "jig_die_outer", "jig_plate_inner", "jig_plate_outer", "jig_bolts", "jig_nuts")
+    hits = [k for k in ("jig_die_inner", "jig_die_outer", "jig_washers_inner", "jig_washers_outer", "jig_bolts", "jig_nuts")
             if ov(parts[k], frame) > 0.05 or ov(parts[k], nds) > 0.05]
     print("collisions with frame / other stay:", hits or "none")
     for k in ("die_inner", "die_outer"):
