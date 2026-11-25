@@ -135,6 +135,9 @@ def fit_jig(jp, jloc, n, st_dir, dt_dir, stub, other_stay=None, other_lug=None):
     if other_lug is not None:
         tubes.append(offset(other_lug, FIT_CLR))
     tubes = [t.moved(inv) for t in tubes]
+    # the same jig flipped 180 deg around its length axis does the other stay: top and
+    # bottom swap, so clear the frame mirrored top <-> bottom as well (bike is symmetric)
+    tubes += [t.mirror(Plane.XY) for t in tubes]
     # the inner side slides up to DIE_OFF towards the bike centre while the stay is still straight
     steps = [k for k in (0, 2, 4, 6, 8) if k < jig.DIE_OFF] + [jig.DIE_OFF + 0.5]
     travel = [t.moved(Location((0, k, 0))) for t in tubes for k in steps]

@@ -36,6 +36,21 @@ for k in ("jig_die_inner", "jig_die_outer", "jig_washers_inner", "jig_washers_ou
             bb = o.bounding_box()
             print(f"HIT {k} {st}: frame {a:.1f} other stay {b:.1f}  bike x {bb.min.X:.0f}..{bb.max.X:.0f}")
 print("collisions:", bad)
+# flipped 180 deg around the length axis on the other stay: in jig coordinates the frame
+# is mirrored top <-> bottom (the bike is symmetric; the other stay is then the dimpled one)
+inv = Location(Plane(origin=Vector(*meta["p0"]) + Vector(*meta["u"]) * jig.JIG_START_FROM_BB,
+                     x_dir=Vector(*meta["u"]), z_dir=Vector(*meta["u"]).cross(n))).inverse()
+bad_f = 0
+for stay_k in ("stay_nds_straight", "stay_nds_bent"):
+    obst = (frame + parts[stay_k]).moved(inv).mirror(Plane.XY)
+    for k in ("die_inner", "die_outer", "washers_inner", "washers_outer", "bolts", "nuts"):
+        inner = k in ("die_inner", "washers_inner", "bolts")
+        sh = -jig.DIE_OFF if (inner and stay_k.endswith("straight")) else 0
+        v = ov(jl[k].moved(Location((0, sh, 0))), obst)
+        if v > 0.05:
+            bad_f += 1
+            print(f"HIT flipped {k} ({stay_k}): {v:.1f}")
+print("collisions, flipped for the other stay:", bad_f)
 print("inner washers to frame / other stay, open:", round(parts["jig_washers_inner"].moved(Location(n * -jig.DIE_OFF)).distance_to(nds + frame), 2))
 
 meta.update(scene.report(y0))

@@ -80,9 +80,10 @@ WASHER_T = 2.0       # DIN 9021 M8 washer (Ø24) under every head and nut, strai
 WASHER_D = 24.0
 BOLT_X = (49.0, 92.0, 135.0)   # pairs at +-BOLT_Z
 BOLT_Z = 24.0        # bolt rows at +-BOLT_Z, outside the finger bands
-# extra bolts in the BB-end corners, next to bend 1 (x, z, washer Ø). The top one sits
-# close to the seat tube: a plain DIN 125 Ø16 washer clears it, a Ø24 one just touches.
-CORNER_BOLTS = ((12.0, -BOLT_Z, 24.0), (12.0, BOLT_Z, 16.0))
+# extra bolts in the BB-end corners, next to bend 1 (x, z, washer Ø). The upper corner sits
+# close to the seat tube - and flipped for the other stay, the lower one does. A plain
+# DIN 125 Ø16 washer clears it, a Ø24 one just touches: Ø16 on both corners.
+CORNER_BOLTS = ((12.0, -BOLT_Z, 16.0), (12.0, BOLT_Z, 16.0))
 BOLTS = tuple((x, z, WASHER_D) for x in BOLT_X for z in (-BOLT_Z, BOLT_Z)) + CORNER_BOLTS
 BOLT_D = 8.5         # M8 clearance
 BOLT_LEN = 100.0

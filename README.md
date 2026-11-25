@@ -21,6 +21,7 @@ A parametric, 3D-printable jig for cold-setting the chainstays of a lugged steel
 | `build.py` | Builds everything and runs the checks: validity, overlaps, collisions, tire and chainring gaps. `--export` writes `out/`. |
 | `testfit.py` | Straight test-fit dies (no bend) to check the fit before printing the real ones. |
 | `gauges.py` | Split-ring section gauges that clip on the stay to check the measured sections. |
+| `make_3mf.py` | Orca Slicer project for the Qidi Q2: both dies on their backs, Siraya PPA-CF settings labelled as PAHT-CF, heated chamber and QIDI Box. Pass the Siraya Tech PPA-CF Q2 `.3mf`. |
 | `make_viewer.py` | Embeds the exported STLs and numbers into `viewer/index.html`. |
 
 The print-ready output is in `out/`:
