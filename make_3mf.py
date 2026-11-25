@@ -13,6 +13,7 @@ Process: Siraya's "ST PPA-CF 0.20mm Standard @Qidi Q2", made stronger for a pres
 
 Run:  python make_3mf.py "~/Downloads/Siraya Tech PPA-CF Q2 0.4mm 20251112.3mf"
       -> out/print/chainstay_dies_PPA-CF_Q2.3mf  (open in Orca, check, slice, print)
+      add die_inner or die_outer as a second argument for one die per print
 """
 import json, sys, zipfile
 from pathlib import Path
@@ -89,7 +90,9 @@ def mesh_xml(i, v):
     return f'<object id="{i}" type="model"><mesh><vertices>\n{vs}\n</vertices><triangles>\n{ts}\n</triangles></mesh></object>'
 
 
-def main(template):
+def main(template, only=None):
+    parts = [p for p in PARTS if only is None or p[0].startswith(only)]
+    out = OUT if only is None else OUT.with_name(f"chainstay_{only}_PPA-CF_Q2.3mf")
     zin = zipfile.ZipFile(Path(template).expanduser())
     cfg = json.loads(zin.read("Metadata/project_settings.config"))
     assert cfg["filament_type"] == ["PPA-CF"] and "Q2" in cfg["printer_settings_id"], "not the Siraya PPA-CF Q2 project"
@@ -115,8 +118,8 @@ def main(template):
     proc.update(PROCESS)
 
     objs, ms = [], ['<?xml version="1.0" encoding="UTF-8"?>', "<config>"]
-    for i, (name, rot, c) in enumerate(PARTS, 1):
-        v = place(read_stl(ROOT / "out" / f"{name}.stl"), rot, c)
+    for i, (name, rot, c) in enumerate(parts, 1):
+        v = place(read_stl(ROOT / "out" / f"{name}.stl"), rot, (c[0], 135.0) if only else c)
         print(f"{name}: {np.ptp(v[:, 0]):.1f} x {np.ptp(v[:, 1]):.1f} x {np.ptp(v[:, 2]):.1f} mm")
         objs.append(mesh_xml(i, v))
         ms += [f' <object id="{i}">', f'  <metadata key="name" value="{name}"/>', '  <metadata key="extruder" value="1"/>',
@@ -124,7 +127,7 @@ def main(template):
                '   <metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/>', '  </part>', ' </object>']
     ms += [" <plate>", '  <metadata key="plater_id" value="1"/>', '  <metadata key="locked" value="false"/>',
            '  <metadata key="filament_map_mode" value="Auto For Flush"/>', '  <metadata key="filament_maps" value="1"/>']
-    for i in range(1, len(PARTS) + 1):
+    for i in range(1, len(parts) + 1):
         ms += ["  <model_instance>", f'   <metadata key="object_id" value="{i}"/>', '   <metadata key="instance_id" value="0"/>',
                f'   <metadata key="identify_id" value="{100 + i}"/>', "  </model_instance>"]
     ms += [" </plate>", "</config>"]
@@ -135,11 +138,11 @@ def main(template):
              ' <metadata name="Application">OrcaSlicer-2.5.2</metadata>\n'
              ' <metadata name="BambuStudio:3mfVersion">1</metadata>\n'
              ' <metadata name="Title">Chainstay jig dies</metadata>\n <resources>\n' + "\n".join(objs) +
-             '\n </resources>\n <build>\n' + "\n".join(f'  <item objectid="{i}" printable="1"/>' for i in range(1, len(PARTS) + 1)) +
+             '\n </resources>\n <build>\n' + "\n".join(f'  <item objectid="{i}" printable="1"/>' for i in range(1, len(parts) + 1)) +
              "\n </build>\n</model>\n")
 
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(OUT, "w", zipfile.ZIP_DEFLATED) as z:
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("[Content_Types].xml", zin.read("[Content_Types].xml"))
         z.writestr("_rels/.rels", '<?xml version="1.0" encoding="UTF-8"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">\n'
                    ' <Relationship Target="/3D/3dmodel.model" Id="rel-1" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/>\n</Relationships>')
@@ -148,8 +151,10 @@ def main(template):
         z.writestr("Metadata/project_settings.config", json.dumps(cfg, indent=4))
         z.writestr("Metadata/filament_settings_1.config", json.dumps(fil, indent=4))
         z.writestr("Metadata/process_settings_1.config", json.dumps(proc, indent=4))
-    print("written", OUT)
+    print("written", out)
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "~/Downloads/Siraya Tech PPA-CF Q2 0.4mm 20251112.3mf")
+    # python make_3mf.py [siraya.3mf] [die_inner | die_outer]   (one die per print)
+    main(sys.argv[1] if len(sys.argv) > 1 else "~/Downloads/Siraya Tech PPA-CF Q2 0.4mm 20251112.3mf",
+         sys.argv[2] if len(sys.argv) > 2 else None)
