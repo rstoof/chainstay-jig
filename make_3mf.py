@@ -48,6 +48,9 @@ FILAMENT = {
     "overhang_fan_speed": "0",
     "filament_retraction_length": "1",
     "filament_cost": "60",
+    # the printer maps G-code filaments to QIDI Box slots by type and colour; with no match
+    # it falls back to the external spool. Match the colour the Box shows for the PPA-CF slot.
+    "filament_colour": "#060606",
     # heated chamber: with 0 the Q2 start macro runs the exhaust fan at full speed
     "chamber_temperature": "60",
     "activate_chamber_temp_control": "1",
