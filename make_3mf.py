@@ -15,7 +15,7 @@ Run:  python make_3mf.py "~/Downloads/Siraya Tech PPA-CF Q2 0.4mm 20251112.3mf"
       -> out/print/chainstay_dies_PPA-CF_Q2.3mf  (open in Orca, check, slice, print)
       add die_inner or die_outer as a second argument for one die per print
 """
-import json, sys, zipfile
+import json, re, sys, zipfile
 from pathlib import Path
 import numpy as np
 
@@ -61,6 +61,9 @@ FILAMENT = {
 # loaded slots' filament types: PAHT-CF 65, PLA 0 - so take the PLA spools out of that box.
 BOX_TEMP = 65
 BOX_GCODE = f"DISABLE_BOX_HEATER\nBOX_TEMP_SET VT0={BOX_TEMP}\n"
+# The Box's wrap detection (QDE_004_013) gives false alarms with this stiff CF filament.
+# PRINT_START switches buffer monitoring on at its end, so switch it off right after.
+NO_WRAP_CHECK = "BUFFER_MONITORING ENABLE=0 ; no wrap detection (false alarms with PPA-CF)"
 # (file, rotation so the flat back faces down, plate centre)
 PARTS = [
     ("die_inner_fitted", "+x90", (135.0, 80.0)),    # back is -Y
@@ -90,9 +93,38 @@ def mesh_xml(i, v):
     return f'<object id="{i}" type="model"><mesh><vertices>\n{vs}\n</vertices><triangles>\n{ts}\n</triangles></mesh></object>'
 
 
+def read_model(p):
+    """Meshes from an STL or a (plain or BambuStudio) 3MF, as triangle vertex arrays."""
+    p = Path(p).expanduser()
+    if p.suffix.lower() == ".stl":
+        return [(p.stem, read_stl(p))]
+    z = zipfile.ZipFile(p)
+    res = []
+    for f in z.namelist():
+        if not f.endswith(".model"):
+            continue
+        for oid, body in re.findall(r'<object id="(\d+)"[^>]*>(.*?)</object>', z.read(f).decode(), re.S):
+            v = np.array(re.findall(r'<vertex x="([-\d.e]+)" y="([-\d.e]+)" z="([-\d.e]+)"', body), float)
+            t = np.array(re.findall(r'<triangle v1="(\d+)" v2="(\d+)" v3="(\d+)"', body), int)
+            if len(t):
+                res.append((f"{p.stem}_{oid}", v[t].reshape(-1, 3)))
+    return res
+
+
+def on_bed(v, c=(135.0, 135.0)):
+    lo, hi = v.min(0), v.max(0)
+    return v - [(lo[0] + hi[0]) / 2 - c[0], (lo[1] + hi[1]) / 2 - c[1], lo[2]]
+
+
 def main(template, only=None):
-    parts = [p for p in PARTS if only is None or p[0].startswith(only)]
-    out = OUT if only is None else OUT.with_name(f"chainstay_{only}_PPA-CF_Q2.3mf")
+    model_file = only if only and Path(only).suffix.lower() in (".3mf", ".stl") else None
+    if model_file:
+        meshes = [(n, on_bed(v)) for n, v in read_model(model_file)]
+        out = OUT.with_name(f"{Path(model_file).stem}_PPA-CF_Q2.3mf")
+    else:
+        parts = [p for p in PARTS if only is None or p[0].startswith(only)]
+        meshes = [(n, place(read_stl(ROOT / "out" / f"{n}.stl"), rot, (c[0], 135.0) if only else c)) for n, rot, c in parts]
+        out = OUT if only is None else OUT.with_name(f"chainstay_{only}_PPA-CF_Q2.3mf")
     zin = zipfile.ZipFile(Path(template).expanduser())
     cfg = json.loads(zin.read("Metadata/project_settings.config"))
     assert cfg["filament_type"] == ["PPA-CF"] and "Q2" in cfg["printer_settings_id"], "not the Siraya PPA-CF Q2 project"
@@ -103,6 +135,10 @@ def main(template, only=None):
     cfg.update({k: [v] for k, v in FILAMENT.items()})
     if "BOX_TEMP_SET" not in cfg["machine_start_gcode"]:
         cfg["machine_start_gcode"] = BOX_GCODE + cfg["machine_start_gcode"]
+    if "BUFFER_MONITORING" not in cfg["machine_start_gcode"]:
+        lines = cfg["machine_start_gcode"].split("\n")
+        i = next(k for k, l in enumerate(lines) if l.startswith("PRINT_START"))
+        cfg["machine_start_gcode"] = "\n".join(lines[:i + 1] + [NO_WRAP_CHECK] + lines[i + 1:])
     d = cfg["different_settings_to_system"]
     d[0] = ";".join(sorted(set(filter(None, d[0].split(";"))) | set(PROCESS)))
     d[2] = ";".join(sorted(set(filter(None, d[2].split(";"))) | {"machine_start_gcode"}))
@@ -118,8 +154,7 @@ def main(template, only=None):
     proc.update(PROCESS)
 
     objs, ms = [], ['<?xml version="1.0" encoding="UTF-8"?>', "<config>"]
-    for i, (name, rot, c) in enumerate(parts, 1):
-        v = place(read_stl(ROOT / "out" / f"{name}.stl"), rot, (c[0], 135.0) if only else c)
+    for i, (name, v) in enumerate(meshes, 1):
         print(f"{name}: {np.ptp(v[:, 0]):.1f} x {np.ptp(v[:, 1]):.1f} x {np.ptp(v[:, 2]):.1f} mm")
         objs.append(mesh_xml(i, v))
         ms += [f' <object id="{i}">', f'  <metadata key="name" value="{name}"/>', '  <metadata key="extruder" value="1"/>',
@@ -127,7 +162,7 @@ def main(template, only=None):
                '   <metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/>', '  </part>', ' </object>']
     ms += [" <plate>", '  <metadata key="plater_id" value="1"/>', '  <metadata key="locked" value="false"/>',
            '  <metadata key="filament_map_mode" value="Auto For Flush"/>', '  <metadata key="filament_maps" value="1"/>']
-    for i in range(1, len(parts) + 1):
+    for i in range(1, len(meshes) + 1):
         ms += ["  <model_instance>", f'   <metadata key="object_id" value="{i}"/>', '   <metadata key="instance_id" value="0"/>',
                f'   <metadata key="identify_id" value="{100 + i}"/>', "  </model_instance>"]
     ms += [" </plate>", "</config>"]
@@ -138,7 +173,7 @@ def main(template, only=None):
              ' <metadata name="Application">OrcaSlicer-2.5.2</metadata>\n'
              ' <metadata name="BambuStudio:3mfVersion">1</metadata>\n'
              ' <metadata name="Title">Chainstay jig dies</metadata>\n <resources>\n' + "\n".join(objs) +
-             '\n </resources>\n <build>\n' + "\n".join(f'  <item objectid="{i}" printable="1"/>' for i in range(1, len(parts) + 1)) +
+             '\n </resources>\n <build>\n' + "\n".join(f'  <item objectid="{i}" printable="1"/>' for i in range(1, len(meshes) + 1)) +
              "\n </build>\n</model>\n")
 
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -155,6 +190,7 @@ def main(template, only=None):
 
 
 if __name__ == "__main__":
-    # python make_3mf.py [siraya.3mf] [die_inner | die_outer]   (one die per print)
+    # python make_3mf.py [siraya.3mf] [die_inner | die_outer | other.3mf/.stl]
+    # (one die per print, or any model with the same PPA-CF-as-PAHT-CF settings, e.g. a test part)
     main(sys.argv[1] if len(sys.argv) > 1 else "~/Downloads/Siraya Tech PPA-CF Q2 0.4mm 20251112.3mf",
          sys.argv[2] if len(sys.argv) > 2 else None)
