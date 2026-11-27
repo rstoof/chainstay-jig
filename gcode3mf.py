@@ -72,11 +72,23 @@ def main(project, gcode_path, out):
     t = re.search(r"estimated printing time \(normal mode\) = (.*)", gcode)
     w = re.search(r"total filament used \[g\] = ([\d.]+)", gcode)
     secs = sum(int(n) * {"d": 86400, "h": 3600, "m": 60, "s": 1}[u] for n, u in re.findall(r"(\d+)([dhms])", t.group(1))) if t else 0
+    # the Qidi screen offers a Box slot per <filament> listed here; without them it says
+    # "this file will be printed with external filament"
+    hdr = lambda k: (re.search(rf"^; {re.escape(k)} = (.*)$", gcode, re.M) or [None, ""])[1].strip()
+    types, cols, ids = hdr("filament_type").split(";"), hdr("filament_colour").split(";"), hdr("filament_ids").split(";")
+    used_g = [float(x) for x in hdr("filament used [g]").split(",") if x.strip()]
+    used_mm = [float(x) for x in hdr("filament used [mm]").split(",") if x.strip()]
+    fil = "".join(
+        f'    <filament id="{i + 1}" tray_info_idx="{ids[i] if i < len(ids) else ""}" type="{types[i]}" color="{cols[i]}" '
+        f'used_m="{used_mm[i] / 1000:.2f}" used_g="{g:.2f}" group_id="0" nozzle_diameter="0.40" volume_type="Standard" '
+        f'used_for_object="true" used_for_support="true"/>\n'
+        for i, g in enumerate(used_g) if g > 0)
     slice_info = ('<?xml version="1.0" encoding="UTF-8"?>\n<config>\n  <header>\n'
                   '    <header_item key="X-BBL-Client-Type" value="slicer"/>\n    <header_item key="OrcaSlicer-Version" value="2.5.2"/>\n'
                   '  </header>\n  <plate>\n    <metadata key="index" value="1"/>\n    <metadata key="printer_model_id" value="Qidi-Q2"/>\n'
                   '    <metadata key="nozzle_diameters" value="0.4"/>\n'
                   f'    <metadata key="prediction" value="{secs}"/>\n    <metadata key="weight" value="{w.group(1) if w else 0}"/>\n'
+                  '    <metadata key="filament_maps" value="1"/>\n' + fil +
                   '  </plate>\n</config>\n')
 
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
@@ -98,6 +110,10 @@ def main(project, gcode_path, out):
         z.writestr("Metadata/plate_no_light_1.png", big)
         z.writestr("Metadata/plate_1_small.png", small)
         z.writestr("Metadata/slice_info.config", slice_info)
+        n = max(1, len([g for g in used_g if g > 0]))
+        z.writestr("Metadata/filament_sequence.json",
+                   '{"plate_1":{"nozzle_sequence":[0],"optimal_assignment":[%s],"sequence":[%s]}}'
+                   % (",".join("0" * 1 for _ in range(n)), ",".join(str(i + 1) for i, g in enumerate(used_g) if g > 0)))
     print("written", out)
 
 
