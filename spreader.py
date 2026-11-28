@@ -40,6 +40,16 @@ SOCK_D, SOCK_L = 10.0, 10.0        # bolt-tip bore into the socket ear (room for
 WASH_D, WASH_T = 16.7, 2.4         # DIN 125 M8 washer slot (16 x 1.6)
 OUT = Path(__file__).parent / "out"
 
+# Locator: a centre bar that hangs on both spreader bolts and butts against the BB shell
+# between the two lugs, so the jaws sit at lug + 100..140 without measuring. It stays on
+# the bisector of the two stays, so the unknown bend-2 angle does not matter.
+BB_X = -(jig.JIG_START_FROM_BB + X0)      # BB centre, local x (stay axis points at it)
+BB_R = jig.BB_SHELL_OD / 2
+LUG_OD, LUG_GAP, LUG_LEN = 26.2, 10.8, jig.LUG_LEN
+LOC_T = 6.0              # plate thickness (y), between the jaw faces
+LOC_BAR_W, LOC_BAR_H = 7.0, 12.0          # bar between the stays; 10.8 mm between the lugs
+LOC_HOLE = 9.6           # loose on the M8 bolts: the bar can yaw onto the centreline
+
 
 def cradle():
     """Stay + CLR, lofted along x from the measured sections (a bit past both ends)."""
@@ -83,6 +93,43 @@ def jaw():
     txt = Plane.XZ.offset(-BODY) * Pos(LJ / 2, 0) * Text("< BB", 6.0, align=(Align.CENTER, Align.CENTER))
     body -= extrude(txt, amount=-0.6)
     return body
+
+
+def locator():
+    plate = box(0, LJ, -LOC_T / 2, LOC_T / 2, -(ZB + 8), ZB + 8)
+    plate = fillet(plate.edges().filter_by(Axis.Y), 4.0)
+    x_tip = BB_X + BB_R                     # shell surface
+    bar = box(x_tip - 2, 2, -LOC_BAR_W / 2, LOC_BAR_W / 2, -LOC_BAR_H / 2, LOC_BAR_H / 2)
+    # gusset: bar into plate
+    gus = extrude(Plane.XZ * Polygon((2, -ZB), (2, ZB), (-18, LOC_BAR_H / 2), (-18, -LOC_BAR_H / 2),
+                                                     align=None), LOC_T / 2, both=True)
+    body = plate + bar + gus
+    # concave tip that sits on the shell
+    body -= Pos(BB_X, 0, 0) * Rot(90, 0, 0) * Cylinder(BB_R + 0.3, 40)
+    for z in (ZB, -ZB):
+        body -= Pos(LJ / 2, 0, z) * Rot(90, 0, 0) * Cylinder(LOC_HOLE / 2, 20)
+    txt = Plane.XZ.offset(-LOC_T / 2) * Pos(LJ / 2, 0) * Text("BB >", 5.0, align=(Align.CENTER, Align.CENTER))
+    body -= extrude(txt, amount=-0.6)
+    return body
+
+
+def bb_context(gap):
+    """BB shell, lugs and stays converging from the lugs to the jaws (bend 2 ignored)."""
+    shell = Pos(BB_X, 0, 0) * Rot(90, 0, 0) * (Cylinder(BB_R, 68) - Cylinder(17.4, 68))
+    lug_y = (LUG_GAP + LUG_OD) / 2
+    parts = [shell]
+    for sgn in (-1, 1):
+        x0 = BB_X + BB_R - 1.0
+        lug = Pos(x0, sgn * lug_y, 0) * Rot(0, 90, 0) * Pos(0, 0, (LUG_LEN + 1) / 2) * Cylinder(LUG_OD / 2, LUG_LEN + 1)
+        xa = BB_X + BB_R + LUG_LEN          # lug end, local x = -X0
+        secs = []
+        for xl in (xa - 1, -50.0, -25.0, 0.0, 25.0, 50.0, 75.0):
+            w, h = jig.sec(X0 + xl)
+            t = min(1.0, max(0.0, (xl - xa) / (0.0 - xa)))
+            yc = lug_y + t * (gap / 2 + w / 2 - lug_y)
+            secs.append(Plane.YZ.offset(xl) * Pos(sgn * yc, 0) * Ellipse(w / 2, h / 2))
+        parts += [lug, loft(secs)]
+    return parts
 
 
 def report(j):
@@ -157,7 +204,9 @@ def export_viewer(j, gap=38.0):
     washer = lambda: Rot(90, 0, 0) * (Cylinder(8, 1.6) - Cylinder(4.2, 1.6))
     washers = [Pos(LJ / 2, -gap / 2 + wy, -ZB) * washer(), Pos(LJ / 2, gap / 2 - wy, ZB) * washer()]
     # bolts[0:2] = top bolt + head (pushes jaw B), bolts[2:4] = bottom bolt + head (pushes jaw A)
-    for name, shp in (("jaw_a", a), ("jaw_b", b), ("stay_a", stays[0]), ("stay_b", stays[1]),
+    ctx = bb_context(gap)
+    for name, shp in (("jaw_a", a), ("jaw_b", b), ("stay_a", ctx[2]), ("stay_b", ctx[4]),
+                      ("bb", Compound([ctx[0], ctx[1], ctx[3]])), ("locator", locator()),
                       ("bolt_top", Compound(bolts[0:2])), ("bolt_bot", Compound(bolts[2:4])),
                       ("nut_top", nuts[0]), ("nut_bot", nuts[1]), ("washer_a", washers[0]), ("washer_b", washers[1])):
         export_stl(shp, str(d / f"{name}.stl"), tolerance=0.05, angular_tolerance=0.2)
@@ -173,8 +222,18 @@ if __name__ == "__main__":
             ov = (o & s).volume
             if ov > 1e-3:
                 print(f"  overlap {ov:.2f} mm3")
-    picture([(a, "#3a3a3a"), (b, "#3a3a3a")] + [(s, "#b0b6c0") for s in stays] + [(s, "#d9b44a") for s in bolts],
-            OUT / "spreader_assembly.png")
+    loc = locator()
+    print(f"locator: valid {loc.is_valid}, bar {BB_X + BB_R:.1f}..0 (local x), volume {loc.volume / 1000:.1f} cm3")
+    ctx = bb_context(38.0)
+    for o in ctx + [a, b]:
+        ov = (loc & o).volume
+        print(f"  locator overlap {ov:.2f} mm3" if ov > 1e-3 else "  locator clear", end="")
+    print()
+    for sgn, st in ((-1, ctx[2]), (1, ctx[4])):
+        print(f"  locator to stay/lug gap: {loc.distance_to(st):.1f} mm, to lug {loc.distance_to(ctx[1 if sgn < 0 else 3]):.1f} mm")
+    export_stl(loc, str(OUT / "spreader_locator.stl"), tolerance=0.02, angular_tolerance=0.1)
+    picture([(a, "#3a3a3a"), (b, "#3a3a3a"), (loc, "#5a6470")] + [(s, "#b0b6c0") for s in ctx] +
+            [(s, "#d9b44a") for s in bolts], OUT / "spreader_assembly.png")
     export_viewer(j)
     export_stl(print_layout(j), str(OUT / "spreader_jaws_x2.stl"), tolerance=0.02, angular_tolerance=0.1)
     print("written", OUT / "spreader_jaw.stl", OUT / "spreader_jaws_x2.stl")

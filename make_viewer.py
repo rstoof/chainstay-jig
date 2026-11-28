@@ -14,7 +14,7 @@ def blob(folder, names):
 
 def main():
     s = PAGE.read_text()
-    for id_, folder in (("parts-data", OUT), ("bike-data", OUT / "bike"), ("spreader-data", OUT / "spreader")):
+    for id_, folder in (("parts-data", OUT), ("bike-data", OUT / "bike"), ("spreader-data", OUT / "spreader"), ("dial-data", OUT / "dial_view")):
         m = re.search(r'(<script type="application/json" id="%s">)(.*?)(</script>)' % id_, s, re.S)
         names = list(json.loads(m.group(2)))
         s = s[:m.start(2)] + blob(folder, names) + s[m.end(2):]
