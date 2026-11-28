@@ -21,8 +21,7 @@ A parametric, 3D-printable jig for cold-setting the chainstays of a lugged steel
 | `build.py` | Builds everything and runs the checks: validity, overlaps, collisions, tire and chainring gaps. `--export` writes `out/`. |
 | `testfit.py` | Straight test-fit dies (no bend) to check the fit before printing the real ones. |
 | `gauges.py` | Split-ring section gauges that clip on the stay to check the measured sections. |
-| `spreader.py` | Twin-screw chainstay spreader: two identical jaws that hook on the stays 100–140 mm behind the lugs, with M8×100 bolts crossing above and below the stays. Re-sets the outward angle at the BB end if bend 1 springs back. A locator bar hangs on the bolts and butts against the BB shell between the lugs. |
-| `dial.py` | Dropout dial: thread-and-drum gauge clamped in the axle slots, 100 mm per needle turn, reads the dropout spacing live while spreading. `plate_all()` writes the whole spreader set as one print (`out/spreader_set.stl`). |
+| `spreader.py` | Twin-screw chainstay spreader: two identical jaws that hook on the stays 100–140 mm behind the lugs, with M8×100 bolts crossing above and below the stays. Re-sets the outward angle at the BB end if bend 1 springs back. A locator bar hangs on the bolts and butts against the BB shell between the lugs; a zip tie round the foot of the seat tube keeps it there. |
 | `make_3mf.py` | Orca Slicer project for the Qidi Q2: both dies on their backs, Siraya PPA-CF settings labelled as PAHT-CF, heated chamber and QIDI Box. Pass the Siraya Tech PPA-CF Q2 `.3mf`. |
 | `gcode3mf.py` | Wraps a CLI-sliced G-code into a `.gcode.3mf` with rendered preview images, so the Qidi screen shows a thumbnail like a print sent from Orca. |
 | `make_viewer.py` | Embeds the exported STLs and numbers into `viewer/index.html`. |
@@ -40,8 +39,7 @@ pip install -r requirements.txt
 python build.py --export     # dies + bike scene + checks
 python testfit.py            # straight test-fit dies
 python gauges.py             # section gauges
-python spreader.py           # stay spreader jaws + locator
-python dial.py               # dropout dial + the spreader print set
+python spreader.py           # stay spreader: jaws + locator, print set out/spreader_set.stl
 python make_viewer.py        # refresh the viewer
 ```
 

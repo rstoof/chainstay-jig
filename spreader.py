@@ -51,6 +51,8 @@ LUG_OD, LUG_GAP, LUG_LEN = 26.2, 10.8, jig.LUG_LEN
 LOC_T = 6.0              # plate thickness (y), between the jaw faces
 LOC_BAR_W, LOC_BAR_H = 7.0, 12.0          # bar between the stays; 10.8 mm between the lugs
 LOC_HOLE = 9.6           # loose on the M8 bolts: the bar can yaw onto the centreline
+TIE_SLOT = (5.4, 2.4)    # zip tie slot (along x, across y) through the tip, between the lugs:
+TIE_X = 8.0              # the tie loops round the foot of the seat tube, so the spreader can't creep rearward
 
 
 def cradle():
@@ -110,6 +112,7 @@ def locator():
     body -= Pos(BB_X, 0, 0) * Rot(90, 0, 0) * Cylinder(BB_R + 0.3, 40)
     for z in (ZB, -ZB):
         body -= Pos(LJ / 2, 0, z) * Rot(90, 0, 0) * Cylinder(LOC_HOLE / 2, 20)
+    body -= Pos(x_tip + TIE_X, 0, 0) * Box(TIE_SLOT[0], TIE_SLOT[1], 40)
     txt = Plane.XZ.offset(-LOC_T / 2) * Pos(LJ / 2, 0) * Text("BB >", 5.0, align=(Align.CENTER, Align.CENTER))
     body -= extrude(txt, amount=-0.6)
     return body
@@ -214,6 +217,20 @@ def export_viewer(j, gap=38.0):
         export_stl(shp, str(d / f"{name}.stl"), tolerance=0.05, angular_tolerance=0.2)
 
 
+def plate_all(j):
+    """One print: 2 jaws standing on their BB end + the locator on its side."""
+    jaws = print_layout(j)
+    loc = Rot(90, 0, 0) * locator()
+    placed = []
+    for shp, (cx, cy) in ((jaws, (0, 55)), (loc, (0, -45))):
+        bb = shp.bounding_box()
+        placed.append(Pos(cx - bb.center().X, cy - bb.center().Y, -bb.min.Z) * shp)
+    c = Compound(placed)
+    bb = c.bounding_box()
+    print(f"print set: {bb.size.X:.0f} x {bb.size.Y:.0f} x {bb.size.Z:.0f} mm")
+    export_stl(c, str(OUT / "spreader_set.stl"), tolerance=0.02, angular_tolerance=0.1)
+
+
 if __name__ == "__main__":
     j = jaw()
     report(j)
@@ -237,6 +254,6 @@ if __name__ == "__main__":
     picture([(a, "#3a3a3a"), (b, "#3a3a3a"), (loc, "#5a6470")] + [(s, "#b0b6c0") for s in ctx] +
             [(s, "#d9b44a") for s in bolts], OUT / "spreader_assembly.png")
     export_viewer(j)
-    export_stl(print_layout(j), str(OUT / "spreader_jaws_x2.stl"), tolerance=0.02, angular_tolerance=0.1)
-    print("written", OUT / "spreader_jaw.stl", OUT / "spreader_jaws_x2.stl")
+    plate_all(j)
+    print("written", OUT / "spreader_jaw.stl", OUT / "spreader_set.stl")
 
