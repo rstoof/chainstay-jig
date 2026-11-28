@@ -6,13 +6,14 @@ sprang back, and bring the dropouts back out.
 Two identical C-shaped jaws. Each cradles the inner half of a stay (lofted from the
 gauge-measured SECTIONS) and hooks over its top and bottom with ears. The screws run
 across ABOVE and BELOW the stays, where there is room: between the stays there is only
-~38 mm. Uses the jig hardware: 2x M8x100 fully threaded + 2x M8 nut, plus 2 solid steel
-discs: a 1 euro-cent coin (16.25 x 1.67, copper-plated steel) fits the slot. Not a washer:
-the bolt tip goes straight through its 8.4 mm hole.
+~38 mm. Uses the jig hardware: 2x M8x100 fully threaded + 2x M8 nut, plus 2 steel discs
+under the bolt tips: a large M5 washer (17.2 x 1.9, 5.5 mm hole - the M8 tip bears on the
+ring round the hole and centres in it) or a 1 euro-cent coin. Not an M8 washer: the bolt
+tip goes straight through its 8.4 mm hole.
 
 Jaw A, top ear: captive nut - the bolt goes in from outboard, its tip pushes jaw B.
 Jaw A, bottom ear: socket - the bottom bolt comes from jaw B's side and its tip bears
-on a steel disc (1-cent coin) in a slot, not on plastic. Jaw B = jaw A turned 180 deg about the
+on a steel disc (M5 washer) in a slot, not on plastic. Jaw B = jaw A turned 180 deg about the
 stay axis, so both jaws are the same part: print 2.
 
 Run:  python spreader.py   -> out/spreader_jaw.stl, out/spreader_assembly.png
@@ -38,7 +39,7 @@ EAR_OUT = YC - 7.0                 # ears reach 7 mm outboard of the stay centre
 BOLT_D = 8.6
 NUT_Y = (-10.4, -3.5)              # nut pocket, y range (over the stay)
 SOCK_D, SOCK_L = 10.0, 10.0        # bolt-tip bore into the socket ear (room for jaw yaw)
-WASH_D, WASH_T = 16.7, 2.4         # DIN 125 M8 washer slot (16 x 1.6)
+WASH_D, WASH_T = 17.7, 2.4         # steel disc slot: M5 washer (17.2 x 1.9, 5.5 hole) or 1-cent coin
 OUT = Path(__file__).parent / "out"
 
 # Locator: a centre bar that hangs on both spreader bolts and butts against the BB shell
@@ -84,7 +85,7 @@ def jaw():
     body -= nut
     body -= box(LJ / 2 - NUT_AF / 2, LJ / 2 + NUT_AF / 2, *NUT_Y, ZB, HZ + 1)   # drop-in slot
 
-    # bottom ear: socket for the other bolt's tip, slot for a solid steel disc (1-cent coin), open downwards
+    # bottom ear: socket for the other bolt's tip, slot for a steel disc (M5 washer), open downwards
     body -= ybore(SOCK_D, BODY - SOCK_L, BODY + 1, -ZB)
     wy1 = BODY - SOCK_L
     body -= box(LJ / 2 - WASH_D / 2, LJ / 2 + WASH_D / 2, wy1 - WASH_T, wy1 + 0.01, -HZ - 1, -ZB + WASH_D / 2)
@@ -201,8 +202,8 @@ def export_viewer(j, gap=38.0):
     hexnut = lambda: Rot(90, 0, 0) * Rot(0, 0, 30) * (extrude(RegularPolygon(13 / math.sqrt(3), 6), 3.25, both=True)
                                                       - Cylinder(4, 8))
     nuts = [Pos(LJ / 2, -gap / 2 + my, ZB) * hexnut(), Pos(LJ / 2, gap / 2 - my, -ZB) * hexnut()]
-    wy = BODY - SOCK_L - 0.8 - 0.8          # coin centre (local), outboard of the bolt tip
-    washer = lambda: Rot(90, 0, 0) * Cylinder(16.25 / 2, 1.6)        # 1 euro-cent coin: solid steel
+    wy = BODY - SOCK_L - 0.8 - 0.95         # disc centre (local), outboard of the bolt tip
+    washer = lambda: Rot(90, 0, 0) * (Cylinder(17.2 / 2, 1.9) - Cylinder(5.5 / 2, 1.9))   # M5 washer
     washers = [Pos(LJ / 2, -gap / 2 + wy, -ZB) * washer(), Pos(LJ / 2, gap / 2 - wy, ZB) * washer()]
     # bolts[0:2] = top bolt + head (pushes jaw B), bolts[2:4] = bottom bolt + head (pushes jaw A)
     ctx = bb_context(gap)
